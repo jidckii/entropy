@@ -24,14 +24,10 @@ APPIMAGETOOL_URL="${APPIMAGETOOL_URL:-$APPIMAGETOOL_PINNED_URL}"
 APPIMAGETOOL_SHA256="${APPIMAGETOOL_SHA256:-$APPIMAGETOOL_PINNED_SHA256}"
 
 # APPDIR и OUT приезжают снаружи, а по ним идёт rm -rf: путь канонизируется
-# (симлинки, `..`) и обязан лежать строго внутри сборочных каталогов репозитория
-# или каталога временных файлов. Иначе опечатка или унаследованное из окружения
-# значение сносит рекурсивно чужой каталог.
-REMOVABLE_ROOTS=("$ROOT/target" "$ROOT/dist" "$ROOT/.cache" "${TMPDIR:-/tmp}")
-case "${DIST:-}" in
-'' | /* | *..*) ;;
-*) REMOVABLE_ROOTS+=("$ROOT/$DIST") ;;
-esac
+# (симлинки, `..`) и обязан лежать строго внутри сборочных каталогов репозитория.
+# Корни фиксированные — ни TMPDIR, ни DIST сюда не попадают: иначе вызывающий
+# сам выбирает, что разрешено удалять (`DIST=.` — весь репозиторий).
+REMOVABLE_ROOTS=("$ROOT/target" "$ROOT/dist" "$ROOT/.cache")
 
 removable_path() {
   local name="$1" path="$2" resolved root root_resolved

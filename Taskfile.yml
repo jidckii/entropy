@@ -117,9 +117,17 @@ tasks:
           ;;
         esac
 
+        # Только внутри сборочных каталогов: `DIST=.` или `DIST=src` вывалили
+        # бы артефакты в исходники, а build_linux_appimage.sh такой выход
+        # всё равно отвергнет.
         case "$DIST" in
-        "" | /* | *..*)
-          echo "DIST='$DIST' must be a relative path inside the repository" >&2
+        *..*)
+          echo "DIST='$DIST' must not contain '..'" >&2
+          exit 1
+          ;;
+        dist | dist/* | target/?*) ;;
+        *)
+          echo "DIST='$DIST' must be dist, dist/... or target/..." >&2
           exit 1
           ;;
         esac

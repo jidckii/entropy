@@ -212,7 +212,10 @@ packages instead of a build that always fails at the last step.
 way (`task linux:pkg VERSION=0.3.10-rc.1`). Everything that can be overridden —
 `VERSION`, `PKG_ARCH`, `DIST`, `ENTROPY_BIN`, `SOURCE_DATE_EPOCH` — is validated
 before it reaches a filename or a package, and reaches the shell through the
-environment rather than string interpolation.
+environment rather than string interpolation. `DIST` has to stay under `dist/`
+or `target/`: the AppImage build deletes its previous output recursively, so
+`scripts/build_linux_appimage.sh` refuses to remove anything outside `target/`,
+`dist/` and `.cache/` whatever `DIST` or `TMPDIR` say.
 
 A prerelease has to sort *before* the stable release it precedes, or the upgrade
 from `0.3.10-rc.1` to `0.3.10` never happens. The three formats disagree on how,
