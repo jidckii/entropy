@@ -104,6 +104,25 @@ else
   "$ROOT/scripts/verify_sha256.sh" "$APPIMAGETOOL" "$APPIMAGETOOL_SHA256"
 fi
 
-ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGETOOL" --comp xz "$APPDIR" "$OUT"
+# mksquashfs 4.3 внутри закреплённого appimagetool пакует хвосты файлов во
+# фрагменты в порядке гонки своих потоков, и один и тот же AppDir даёт разные
+# образы. Флаги в mksquashfs appimagetool не пробрасывает и берёт его по
+# фиксированному пути рядом с собой, поэтому запускаем распакованную копию
+# (сумма выше проверена у самого AppImage), где mksquashfs обёрнут в
+# `-processors 1`.
+TOOL_DIR="$APPDIR.tool"
+rm -rf "$TOOL_DIR"
+mkdir -p "$TOOL_DIR"
+(cd "$TOOL_DIR" && "$APPIMAGETOOL" --appimage-extract >/dev/null)
+MKSQUASHFS="$TOOL_DIR/squashfs-root/usr/lib/appimagekit/mksquashfs"
+mv "$MKSQUASHFS" "$MKSQUASHFS.real"
+cat > "$MKSQUASHFS" <<'EOF'
+#!/bin/sh
+exec "$0.real" "$@" -processors 1
+EOF
+chmod 0755 "$MKSQUASHFS"
+
+ARCH=x86_64 "$TOOL_DIR/squashfs-root/AppRun" --comp xz "$APPDIR" "$OUT"
+rm -rf "$TOOL_DIR"
 chmod 0755 "$OUT"
 echo "Built $OUT"

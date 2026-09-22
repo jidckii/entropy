@@ -110,11 +110,15 @@ what makes that a checked claim rather than a hope: it builds everything twice
 and compares SHA-256 sums. CI runs the container variant on every pull request
 and publishes the build it verified.
 
-Two things make it hold. Timestamps come from the commit rather than the clock:
+Three things make it hold. Timestamps come from the commit rather than the clock:
 `SOURCE_DATE_EPOCH` is derived from `git log -1 --pretty=%ct` and honoured by
 both nfpm and the AppImage (whose `AppDir` mtimes are normalised before
-`mksquashfs` sees them). And the toolchain is fixed by digest, snapshot and
-version pin as described above.
+`mksquashfs` sees them). The toolchain is fixed by digest, snapshot and
+version pin as described above. And `mksquashfs` runs single-threaded: the
+4.3 build inside the pinned appimagetool packs file tails into fragments in
+whatever order its threads finish, so the same `AppDir` produced different
+images. appimagetool passes no options through, so the build runs an extracted
+copy of it whose `mksquashfs` is wrapped with `-processors 1`.
 
 Overriding `SOURCE_DATE_EPOCH` in the environment wins, which is what a release
 pipeline building from a tag should do.

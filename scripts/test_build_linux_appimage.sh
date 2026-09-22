@@ -63,10 +63,23 @@ EOF
 
 chmod 0755 "$STUB_BIN/cargo" "$STUB_BIN/install" "$STUB_BIN/curl"
 
+# Сборка распаковывает appimagetool и запускает squashfs-root/AppRun, а
+# mksquashfs ищется в usr/lib/appimagekit — фейк повторяет эту раскладку и
+# записывает аргументы, с которыми до mksquashfs дошёл вызов.
 TRUSTED_TOOL="$TMP_DIR/trusted-tool"
 cat > "$TRUSTED_TOOL" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ "${1:-}" == "--appimage-extract" ]]; then
+  mkdir -p squashfs-root/usr/lib/appimagekit
+  cp "$0" squashfs-root/AppRun
+  cat > squashfs-root/usr/lib/appimagekit/mksquashfs <<'MKSQUASHFS'
+#!/usr/bin/env bash
+printf '%s\n' "$*" > "$APPIMAGETOOL_MKSQUASHFS_ARGS"
+MKSQUASHFS
+  chmod 0755 squashfs-root/AppRun squashfs-root/usr/lib/appimagekit/mksquashfs
+  exit 0
+fi
 printf 'ran\n' > "$APPIMAGETOOL_RUN_MARKER"
 compression=""
 positionals=()
@@ -85,6 +98,7 @@ done
 [[ "$compression" == "xz" ]]
 [[ ${#positionals[@]} -eq 2 ]]
 [[ -d "${positionals[0]}" ]]
+"$(dirname "$0")/usr/lib/appimagekit/mksquashfs" "${positionals[@]}"
 : > "${positionals[1]}"
 EOF
 chmod 0755 "$TRUSTED_TOOL"
@@ -108,6 +122,7 @@ run_build() {
     APPIMAGETOOL_FIXTURE="$fixture" \
     APPIMAGETOOL_CURL_MARKER="$scenario/curl-called" \
     APPIMAGETOOL_RUN_MARKER="$scenario/tool-ran" \
+    APPIMAGETOOL_MKSQUASHFS_ARGS="$scenario/mksquashfs-args" \
     "$BUILD" vtest "$output"
 }
 
@@ -117,6 +132,9 @@ run_build "$FRESH_VALID" "$TRUSTED_TOOL"
 [[ -f "$FRESH_VALID/curl-called" ]]
 [[ -f "$FRESH_VALID/tool-ran" ]]
 [[ -f "$FRESH_VALID/entropy.AppImage" ]]
+# Многопоточный mksquashfs 4.3 делает образ невоспроизводимым.
+[[ "$(<"$FRESH_VALID/mksquashfs-args")" == *" -processors 1" ]]
+[[ ! -e "$FRESH_VALID/Entropy.AppDir.tool" ]]
 
 FRESH_CORRUPT="$TMP_DIR/fresh-corrupt"
 mkdir -p "$FRESH_CORRUPT"
